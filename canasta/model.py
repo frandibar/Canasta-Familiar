@@ -1,14 +1,17 @@
+# -*- coding: latin-1 -*-
 
 from camelot.model import metadata
 
 __metadata__ = metadata
 
-from camelot.admin.action.base import Action
+from camelot.admin.action import Action
+from camelot.view.action_steps import FlushSession
 from camelot.admin.entity_admin import EntityAdmin
 from camelot.view.filters import ComboBoxFilter
 from elixir import Entity, Field, ManyToOne, OneToMany, using_options
-from sqlalchemy import Unicode, Date, Float, Integer, String
+from sqlalchemy import Unicode, Date, Float, Integer, String, Boolean
 import camelot
+
 
 class Supermercado(Entity):
     using_options(tablename="supermercado")
@@ -16,7 +19,7 @@ class Supermercado(Entity):
     domicilio = Field(Unicode(100), required=True)
 
     def __unicode__(self):
-        return "%s (%s)" % (self.denominacion, self.domicilio)
+        return "%s - %s" % (self.denominacion, self.domicilio)
 
     class Admin(EntityAdmin):
         list_display = ["denominacion", "domicilio"]
@@ -40,7 +43,7 @@ class Articulo(Entity):
     unidad_medida = Field(String(25))
     envase = Field(String(25))
     foto = Field(camelot.types.Image(upload_to="fotos"))
-    codigo_barras = Field(String(25))
+    codigo_barras = Field(Unicode(25))
 
     def __unicode__(self):
         envase = self.envase if self.envase else ""
@@ -48,8 +51,7 @@ class Articulo(Entity):
 
     class Admin(EntityAdmin):
         search_all_fields = False
-        list_search = [#"descripcion",
-                       #"marca",
+        list_search = ["descripcion",
                        "codigo_barras",
                        ]
         list_display = ["descripcion",
@@ -74,10 +76,10 @@ class Marca(Entity):
 
 class Precio(Entity):
     using_options(tablename="precio")
-    articulo = ManyToOne("Articulo", required=True)
+    articulo = ManyToOne("Articulo", primary_key=True)
+    fecha = Field(Date, primary_key=True)
+    supermercado = ManyToOne("Supermercado", primary_key=True)
     precio = Field(Float)
-    fecha = Field(Date, required=True)
-    supermercado = ManyToOne("Supermercado", required=True)
 
     class Admin(EntityAdmin):
         list_display = ["articulo",
@@ -98,6 +100,7 @@ class Precio(Entity):
         list_filter = [ComboBoxFilter("supermercado.denominacion"),
                        ComboBoxFilter("fecha"),
                        ]
+        field_attributes = dict(precio = dict(prefix = "$"))
 
 class ArticuloCarrito(Entity):
     using_options(tablename="articulo_carrito")
@@ -109,22 +112,38 @@ class ArticuloCarrito(Entity):
         return self.articulo.descripcion
 
     class Admin(EntityAdmin):
+        verbose_name = u"Artículo"
         list_display = ["articulo", "precio"]
+        field_attributes = dict(precio = dict(prefix = '$'))
+        form_size = (600,150)
 
 
 class ImputarCarrito(Action):
-    from camelot.view.action_steps import MessageBox
+    verbose_name = "Imputar"
+
     def model_run(self, model_context):
-        pass
-        # obj = model_context.get_object()
-        # for i in obj.articulos:
-        #     MessageBox(i)
+        # agregar estos campos a la tabla de pagos, solo si no existen.
+        obj = model_context.get_object()
+        if obj.imputado:
+            # TODO show messagebox
+            print "Ya fue imputado!"
+            return
+        for art in obj.articulos:
+            row = Precio()
+            row.articulo = art.articulo
+            row.precio = art.precio
+            row.fecha = obj.fecha
+            row.supermercado = obj.supermercado
+            Precio.query.session.flush()
+        obj.imputado = True
+        yield FlushSession(model_context.session)
 
 class Carrito(Entity):
     using_options(tablename="carrito")
     supermercado = ManyToOne("Supermercado", primary_key=True)
     fecha = Field(Date, primary_key=True)
     articulos = OneToMany("ArticuloCarrito")
+    imputado = Field(Boolean, default=False)
 
     def __unicode__(self):
         return "%s %s" % (self.fecha, self.supermercado.denominacion)
@@ -134,6 +153,7 @@ class Carrito(Entity):
                         "fecha",
                         "articulos"
                         ]
-        list_display = ["supermercado", "fecha"]
-        form_actions = [ImputarCarrito]
-
+        list_display = ["supermercado", "fecha", "imputado"]
+        form_actions = [ImputarCarrito()]
+        field_attributes = dict(imputado = dict(editable = False))
+        form_size = (800,600)
