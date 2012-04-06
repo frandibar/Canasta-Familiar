@@ -11,7 +11,7 @@ from camelot.view.filters import ComboBoxFilter
 from elixir import Entity, Field, ManyToOne, OneToMany, using_options
 from sqlalchemy import Unicode, Date, Float, Integer, String, Boolean
 import camelot
-
+import datetime
 
 class Supermercado(Entity):
     using_options(tablename="supermercado")
@@ -104,8 +104,8 @@ class Precio(Entity):
 
 class ArticuloCarrito(Entity):
     using_options(tablename="articulo_carrito")
-    carrito = ManyToOne("Carrito", primary_key=True)
-    articulo = ManyToOne("Articulo", primary_key=True)
+    carrito = ManyToOne("Carrito", primary_key=True, ondelete="cascade", onupdate="cascade")
+    articulo = ManyToOne("Articulo", primary_key=True, ondelete="cascade", onupdate="cascade")
     precio = Field(Float)
 
     def __unicode__(self):
@@ -141,7 +141,7 @@ class ImputarCarrito(Action):
 class Carrito(Entity):
     using_options(tablename="carrito")
     supermercado = ManyToOne("Supermercado", primary_key=True)
-    fecha = Field(Date, primary_key=True)
+    fecha = Field(Date, default=datetime.date.today, primary_key=True)
     articulos = OneToMany("ArticuloCarrito")
     imputado = Field(Boolean, default=False)
 
