@@ -139,13 +139,14 @@ class ArticuloCarrito(Entity):
     carrito = ManyToOne("Carrito", primary_key=True, ondelete="cascade", onupdate="cascade")
     articulo = ManyToOne("Articulo", primary_key=True, ondelete="cascade", onupdate="cascade")
     precio = Field(Float)
+    cantidad = Field(Float, default=1.0)
 
     def __unicode__(self):
         return self.articulo.descripcion
 
     class Admin(EntityAdmin):
         verbose_name = u"Artículo"
-        list_display = ["articulo", "precio"]
+        list_display = ["articulo", "precio", "cantidad"]
         field_attributes = dict(precio = dict(prefix = '$'))
         form_size = (600,150)
 
