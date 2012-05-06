@@ -150,6 +150,9 @@ class ArticuloCarrito(Entity):
         field_attributes = dict(precio = dict(prefix = '$'))
         form_size = (600,150)
 
+        # esto es para que se refresque el campo total de carrito
+        def get_depending_objects(self, obj):
+            yield obj.carrito
 
 class ImputarCarrito(Action):
     verbose_name = "Imputar"
@@ -215,12 +218,25 @@ class Carrito(Entity):
     def __unicode__(self):
         return "%s %s" % (self.fecha, self.supermercado.denominacion)
 
+    # No uso ColumnProperty para que se refresque automaticamente cuando se modifican los totales
+    @property
+    def total(self):
+        total = 0
+        for i in self.articulos:
+            total += i.cantidad * i.precio
+        return total
+
     class Admin(EntityAdmin):
         form_display = ["supermercado",
                         "fecha",
-                        "articulos"
+                        "articulos",
+                        "total"
                         ]
         list_display = ["supermercado", "fecha", "imputado"]
         form_actions = [ImputarCarrito()]
-        field_attributes = dict(imputado = dict(editable = True)) # TODO cambiar al false en produccion
+        field_attributes = dict(imputado = dict(editable = True),  # TODO cambiar a false en produccion
+                                total = dict(delegate = CurrencyDelegate,
+                                             prefix = '$',
+                                             editable = False),
+                                )# articulos = dict(create_inline = True))
         form_size = (800,600)
