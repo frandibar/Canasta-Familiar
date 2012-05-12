@@ -37,8 +37,8 @@ from PyQt4.QtGui import QMessageBox
 import camelot
 import datetime
 
-class Supermercado(Entity):
-    using_options(tablename="supermercado", order_by=["denominacion"])
+class Establecimiento(Entity):
+    using_options(tablename="establecimiento", order_by=["denominacion"])
     denominacion = Field(Unicode(50), required=True)
     domicilio = Field(Unicode(100), required=True)
 
@@ -110,33 +110,33 @@ class Precio(Entity):
     using_options(tablename="precio")
     articulo = ManyToOne("Articulo", primary_key=True)
     fecha = Field(Date, primary_key=True, default=datetime.date.today)
-    supermercado = ManyToOne("Supermercado", primary_key=True)
+    establecimiento = ManyToOne("Establecimiento", primary_key=True)
     precio = Field(Float)
 
     class Admin(EntityAdmin):
         list_display = ["articulo",
                         "precio",
                         "fecha",
-                        "supermercado",
+                        "establecimiento",
                         ]
         search_all_fields = True
         # expanded_list_search = ["articulo",
         #                         "fecha",
-        #                         "supermercado.denominacion",
+        #                         "establecimiento.denominacion",
         #                         ]
         expanded_list_search = ["articulo",
                                 "fecha",
                                 "precio",
-                                "supermercado.denominacion",
+                                "establecimiento.denominacion",
                                 ]
-        list_filter = [ComboBoxFilter("supermercado.denominacion"),
+        list_filter = [ComboBoxFilter("establecimiento.denominacion"),
                        ComboBoxFilter("fecha"),
                        ]
         field_attributes = dict(precio = dict(prefix = "$"))
 
-class ArticuloCarrito(Entity):
-    using_options(tablename="articulo_carrito")
-    carrito = ManyToOne("Carrito", primary_key=True, ondelete="cascade", onupdate="cascade")
+class ArticuloCompra(Entity):
+    using_options(tablename="articulo_compra")
+    compra = ManyToOne("Compra", primary_key=True, ondelete="cascade", onupdate="cascade")
     articulo = ManyToOne("Articulo", primary_key=True, ondelete="cascade", onupdate="cascade")
     precio = Field(Float)
     cantidad = Field(Float, default=1.0)
@@ -150,11 +150,11 @@ class ArticuloCarrito(Entity):
         field_attributes = dict(precio = dict(prefix = '$'))
         form_size = (600,150)
 
-        # esto es para que se refresque el campo total de carrito
+        # esto es para que se refresque el campo total de compra
         def get_depending_objects(self, obj):
-            yield obj.carrito
+            yield obj.compra
 
-class ImputarCarrito(Action):
+class ImputarCompra(Action):
     verbose_name = "Imputar"
 
     def model_run(self, model_context):
@@ -162,9 +162,9 @@ class ImputarCarrito(Action):
         obj = model_context.get_object()
         error_occurred = False
         if obj.imputado:
-            yield MessageBox("El carrito ya ha sido imputado.",
+            yield MessageBox("La compra ya ha sido imputada.",
                              icon=QMessageBox.Warning,
-                             title="Imputar carrito",
+                             title="Imputar compra",
                              standard_buttons=QMessageBox.Ok)
             return
         for art in obj.articulos:
@@ -208,15 +208,15 @@ class ImputarCarrito(Action):
         #         return
 
 
-class Carrito(Entity):
-    using_options(tablename="carrito")
-    supermercado = ManyToOne("Supermercado", primary_key=True)
+class Compra(Entity):
+    using_options(tablename="compra", order_by=["fecha"])
+    establecimiento = ManyToOne("Establecimiento", primary_key=True)
     fecha = Field(Date, default=datetime.date.today, primary_key=True)
-    articulos = OneToMany("ArticuloCarrito")
+    articulos = OneToMany("ArticuloCompra")
     imputado = Field(Boolean, default=False)
 
     def __unicode__(self):
-        return "%s %s" % (self.fecha, self.supermercado.denominacion)
+        return "%s %s" % (self.fecha, self.establecimiento.denominacion)
 
     # No uso ColumnProperty para que se refresque automaticamente cuando se modifican los totales
     @property
@@ -227,13 +227,13 @@ class Carrito(Entity):
         return total
 
     class Admin(EntityAdmin):
-        form_display = ["supermercado",
+        form_display = ["establecimiento",
                         "fecha",
                         "articulos",
                         "total"
                         ]
-        list_display = ["supermercado", "fecha", "imputado"]
-        form_actions = [ImputarCarrito()]
+        list_display = ["establecimiento", "fecha", "imputado"]
+        form_actions = [ImputarCompra()]
         field_attributes = dict(imputado = dict(editable = True),  # TODO cambiar a false en produccion
                                 total = dict(delegate = CurrencyDelegate,
                                              prefix = '$',

@@ -39,18 +39,21 @@ class MyApplicationAdmin(ApplicationAdmin):
         from camelot.model.memento import Memento
         from camelot.model.i18n import Translation
         sections = [
-            Section('Altas',
-                    self,
-                    Icon('tango/22x22/actions/list-add.png'),
-                    items = [model.Carrito]),
+            # Section('Altas',
+            #         self,
+            #         Icon('tango/22x22/actions/list-add.png'),
+            #         items = [model.Compra]),
             Section('Entidades',
                     self,
                     Icon('tango/22x22/apps/system-users.png'),
-                    items = [model.Supermercado,
+                    items = [model.Establecimiento,
                              model.Categoria,
                              model.Marca,
                              model.Articulo,
                              model.Precio,
+                             model.Compra,
+                             # view.PreciosComparados,
+                             view.ListaDePrecios,
                              ]),
             # Section('Consultas',
             #         self,
@@ -61,6 +64,6 @@ class MyApplicationAdmin(ApplicationAdmin):
         return sections
 
     def get_actions(self):
-        act = action.OpenNewView(self.get_related_admin(model.Carrito))
+        act = action.OpenNewView(self.get_related_admin(model.Compra))
         act.icon = Icon('tango/32x32/actions/list-add.png')
         return [act]
