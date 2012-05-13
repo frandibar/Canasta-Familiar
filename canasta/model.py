@@ -47,6 +47,7 @@ class Establecimiento(Entity):
 
     class Admin(EntityAdmin):
         list_display = ["denominacion", "domicilio"]
+        delete_mode = "on_confirm"
 
 class Categoria(Entity):
     using_options(tablename="categoria", order_by=["descripcion"])
@@ -57,6 +58,7 @@ class Categoria(Entity):
 
     class Admin(EntityAdmin):
         list_display = ["descripcion"]
+        delete_mode = "on_confirm"
 
 class Articulo(Entity):
     using_options(tablename="articulo", order_by=["descripcion"])
@@ -95,6 +97,7 @@ class Articulo(Entity):
                         "codigo_barras",
                         "foto",
                         ]
+        delete_mode = "on_confirm"
 
 class Marca(Entity):
     using_options(tablename="marca", order_by=["denominacion"])
@@ -105,6 +108,7 @@ class Marca(Entity):
 
     class Admin(EntityAdmin):
         list_display = ["denominacion"]
+        delete_mode = "on_confirm"
 
 class Precio(Entity):
     using_options(tablename="precio")
@@ -133,6 +137,7 @@ class Precio(Entity):
                        ComboBoxFilter("fecha"),
                        ]
         field_attributes = dict(precio = dict(prefix = "$"))
+        delete_mode = "on_confirm"
 
 class ArticuloCompra(Entity):
     using_options(tablename="articulo_compra")
@@ -240,3 +245,4 @@ class Compra(Entity):
                                              editable = False),
                                 )# articulos = dict(create_inline = True))
         form_size = (800,600)
+        delete_mode = "on_confirm"
