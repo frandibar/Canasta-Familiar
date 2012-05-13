@@ -28,10 +28,12 @@ __metadata__ = metadata
 
 from camelot.admin.action import Action
 from camelot.view.action_steps import FlushSession, MessageBox
+from camelot.view.controls.delegates import CurrencyDelegate
 from camelot.admin.entity_admin import EntityAdmin
 from camelot.view.filters import ComboBoxFilter
 from elixir import Entity, Field, ManyToOne, OneToMany, using_options
 from sqlalchemy import Unicode, Date, Float, Integer, Boolean
+from sqlalchemy import desc
 from sqlalchemy.exc import IntegrityError, FlushError
 from PyQt4.QtGui import QMessageBox
 import camelot
@@ -80,6 +82,9 @@ class Articulo(Entity):
         list_search = ["descripcion",
                        "codigo_barras",
                        ]
+        search_all_fields = True
+        # TODO en vez de este filtro hacer andar el expanded search
+        list_filter = [ComboBoxFilter("marca.denominacion")]
         list_display = ["descripcion",
                         "marca",
                         "cantidad",
@@ -128,7 +133,9 @@ class Precio(Entity):
         #                         "fecha",
         #                         "establecimiento.denominacion",
         #                         ]
-        expanded_list_search = ["articulo",
+        list_search = ["articulo.descripcion"]
+        # TODO no anda
+        expanded_list_search = ["articulo.descripcion",
                                 "fecha",
                                 "precio",
                                 "establecimiento.denominacion",
@@ -165,52 +172,49 @@ class ImputarCompra(Action):
     def model_run(self, model_context):
         # agregar estos campos a la tabla de pagos, solo si no existen.
         obj = model_context.get_object()
-        error_occurred = False
         if obj.imputado:
             yield MessageBox("La compra ya ha sido imputada.",
                              icon=QMessageBox.Warning,
                              title="Imputar compra",
                              standard_buttons=QMessageBox.Ok)
             return
-        for art in obj.articulos:
-            try:
+        Precio.query.session.begin()
+        try:
+            for art in obj.articulos:
                 row = Precio()
                 row.articulo = art.articulo
                 row.precio = art.precio
                 row.fecha = obj.fecha
-                row.supermercado = obj.supermercado
-                Precio.query.session.flush()
-            except FlushError, e:
-                error_occurred = True
-                yield MessageBox("Se ha producido un error de flush:\n\n%s" % e,
-                                 icon=QMessageBox.Critical,
-                                 title="Imputar carrito",
-                                 standard_buttons=QMessageBox.Ok)
-                return
-            except IntegrityError, e:
-                error_occurred = True
-                yield MessageBox(u"Se ha producido un error, quiza el siguiente artículo se encuentra repetido:\n\n%s" % e,
-                                 icon=QMessageBox.Critical,
-                                 title="Imputar carrito",
-                                 standard_buttons=QMessageBox.Ok)
-                return
-            except Exception, e:
-                error_occurred = True
-                yield MessageBox("Se ha producido un error:\n\n%s" % e,
-                                 icon=QMessageBox.Critical,
-                                 title="Imputar carrito",
-                                 standard_buttons=QMessageBox.Ok)
-                return
-        obj.imputado = not error_occurred
+                row.establecimiento = obj.establecimiento
+                yield FlushSession(Precio.query.session)
+        except FlushError, e:
+            Precio.query.session.rollback()
+            yield MessageBox("Se ha producido un error de flush:\n\n%s" % e,
+                             icon=QMessageBox.Critical,
+                             title="Imputar compra",
+                             standard_buttons=QMessageBox.Ok)
+            yield UpdateObject(model_context.session)
+            return
+        except IntegrityError, e:
+            Precio.query.session.rollback()
+            yield MessageBox(u"Se ha producido un error, quiza el siguiente artículo se encuentra repetido:\n\n%s" % e,
+                             icon=QMessageBox.Critical,
+                             title="Imputar compra",
+                             standard_buttons=QMessageBox.Ok)
+            yield UpdateObject(model_context.session)
+            return
+        except Exception, e:
+            Precio.query.session.rollback()
+            yield MessageBox("Se ha producido un error:\n\n%s" % e,
+                             icon=QMessageBox.Critical,
+                             title="Imputar compra",
+                             standard_buttons=QMessageBox.Ok)
+            yield UpdateObject(model_context.session)
+            return
+        Precio.query.session.commit()
+        obj.imputado = True
         yield FlushSession(model_context.session)
-        # try:
-        #     yield FlushSession(model_context.session)
-        # except Exeption, e:
-        #         yield MessageBox("Se ha producido un error:\n\n%s" % e,
-        #                          icon=QMessageBox.Critical,
-        #                          title="Imputar carrito",
-        #                          standard_buttons=QMessageBox.Ok)
-        #         return
+        yield camelot.view.action_steps.CloseView()
 
 
 class Compra(Entity):
@@ -244,5 +248,9 @@ class Compra(Entity):
                                              prefix = '$',
                                              editable = False),
                                 )# articulos = dict(create_inline = True))
-        form_size = (800,600)
+        form_size = (950,600)
         delete_mode = "on_confirm"
+
+        def get_query(self):
+            """Redefino para devolver ordenado por fecha desc"""
+            return EntityAdmin.get_query(self).order_by(desc('fecha'))

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block page_head_title %}Listado de precios{% endblock %}
+{% block page_title %}Listado de precios{% endblock %}
+
+{% block page_content %}
+
+
+<table align="center">
+  <thead>
+    <tr>
+      <th>Art&iacute;culo</th>
+      <th>Precio</th>
+      <th>Establecimiento</th>
+      <th>Fecha</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for art in precios|groupby('articulo') %}
+    <tr class="{% cycle('odd', 'even') %}">
+      <td>{{ art.grouper }}</td>
+      {% for precio in art.list %}
+        <td align="right">
+        {% if loop.first %}<b>{% endif %}
+          {{ "$ %.2f"|format(precio.precio) }}</td>
+        {% if loop.first %}</b>{% endif %}
+        <td>{{ precio.establecimiento }}</td>
+        <td>{{ precio.fecha }}</td>
+        {% if not loop.last %}
+          <tr>
+            <td />
+        {% endif %}
+      {% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+
+{% endblock %}

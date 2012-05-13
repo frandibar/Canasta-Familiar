@@ -53,5 +53,7 @@ def setup_model():
     import camelot.model
     from elixir import setup_all
     import canasta.model
+    import canasta.view
     setup_all(create_tables=True)
+    canasta.view.setup_views()
 

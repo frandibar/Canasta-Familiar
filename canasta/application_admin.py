@@ -26,6 +26,7 @@ from camelot.admin.section import Section
 from camelot.view.art import Icon
 
 import model
+import view
 
 class MyApplicationAdmin(ApplicationAdmin):
 
