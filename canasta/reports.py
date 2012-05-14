@@ -61,6 +61,7 @@ class ReportePrecios(Action):
         obj = model_context.get_collection()
         context = {
             "precios": obj,
+            "fecha": datetime.date.today()
             }
         return context
 
