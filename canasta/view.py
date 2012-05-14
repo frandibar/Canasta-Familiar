@@ -34,7 +34,7 @@ from sqlalchemy.orm import mapper
 from sqlalchemy import distinct
 import datetime
 
-from model import Establecimiento, Articulo, Precio, Marca
+from model import Establecimiento, Articulo, Precio, Marca, Compra, ArticuloCompra
 import reports
 
 class ListaDePrecios(object):
@@ -55,9 +55,34 @@ class ListaDePrecios(object):
                                               prefix = "$"),
                                 )
 
-class PreciosComparados(object):
+class CompraMensual(object):
     class Admin(EntityAdmin):
-        list_display = []
+        verbose_name = u"Compra Mensual"
+        verbose_name_plural = u"Compra Mensual"
+        list_display = ["periodo",
+                        "articulo",
+                        "cantidad",
+                        ]
+        # list_actions = [reports.ReporteCompraMensual()]
+        list_action = None
+        list_filter = [ComboBoxFilter("periodo"),
+                       ]
+
+def compra_mensual():
+    tbl_compra = Compra.mapper.mapped_table
+    tbl_artcompra = ArticuloCompra.mapper.mapped_table
+    tbl_articulo = Articulo.mapper.mapped_table
+    tbl_marca = Marca.mapper.mapped_table
+
+    # stmt = select([func.concat(func.year(tbl_compra.c.fecha), "-", format(func.month(tbl_compra.c.fecha), "02")).label("periodo"),
+    stmt = select([func.concat(func.year(tbl_compra.c.fecha), "-", func.month(tbl_compra.c.fecha)).label("periodo"),
+                   func.concat(tbl_articulo.c.descripcion, " ", tbl_marca.c.denominacion, " ", tbl_articulo.c.cantidad, " ", tbl_articulo.c.unidad_medida).label("articulo"),
+                   func.sum(tbl_artcompra.c.cantidad).label("cantidad"),
+                   ],
+                  from_obj=tbl_compra.join(tbl_artcompra).join(tbl_articulo).join(tbl_marca),
+                  group_by=[func.year(tbl_compra.c.fecha), func.month(tbl_compra.c.fecha), tbl_artcompra.c.articulo_id],
+                  )
+    return stmt.alias("compra_mensual")
 
 def precio_actualizado():
     tbl_precio = Precio.mapper.mapped_table
@@ -88,51 +113,12 @@ def lista_de_precios():
                   )
     return stmt.alias("lista_de_precios")
 
-def precios_comparados():
-    # -- para cada articulo, la diferencia porcentual entre el menor y mayor precio, entre todos los establecimientos
-    # create view precio_comparado as
-    # select distinct articulo_id, count(establecimiento_id), min(precio), max(precio), (max(precio)/min(precio)-1)*100 as dif_porcent
-    # from precios_x_establecimiento
-    # group by articulo_id;
-    pxs = precios_x_establecimiento()
-    stmt = select([pxs.c.articulo_id,
-                   func.count(pxs.c.establecimiento_id),
-                   func.min(pxs.c.precio).label("precio_min"),
-                   func.max(pxs.c.precio).label("precio_max"),
-                   # TODO diferencia porcentual
-                   ],
-                  from_obj=pxs,
-                  group_by=[pxs.c.articulo_id],
-                  ).distinct()
-    return stmt.alias("precios_comparados")
-
-def precios_x_establecimiento():
-    # -- para cada articulo y establecimiento, el max precio de los ultimos 6 meses
-    # alter view precios_x_establecimiento as
-    # select articulo_id, establecimiento_id, max(precio) as precio
-    # from precio
-    # where fecha > date_add(now(), interval -6 month)
-    # group by articulo_id, establecimiento_id;
-
-    tbl_precio = Precio.mapper.mapped_table
-
-    stmt = select([tbl_precio.c.articulo_id,
-                   tbl_precio.c.establecimiento_id,
-                   func.max(tbl_precio.c.precio).label("precio")
-                   ],
-                  from_obj=tbl_precio,
-                  whereclause=tbl_precio.c.fecha > datetime.date.today() - datetime.timedelta(weeks=24),
-                  group_by=[tbl_precio.c.articulo_id, tbl_precio.c.establecimiento_id],
-                  )
-    return stmt.alias("precios_x_establecimiento")
-
-
-def setup_precios_comparados():
-    stmt = precios_comparados()
-    mapper(PreciosComparados, stmt, always_refresh=True)
-           # primary_key=[stmt.c.beneficiaria_id,
-           #              stmt.c.nro_credito,
-                        # ])
+def setup_compra_mensual():
+    stmt = compra_mensual()
+    mapper(CompraMensual, stmt, always_refresh=True,
+           primary_key=[stmt.c.periodo,
+                        stmt.c.articulo,
+                        ])
 
 def setup_lista_de_precios():
     stmt = lista_de_precios()
@@ -142,5 +128,5 @@ def setup_lista_de_precios():
                         ])
 
 def setup_views():
-    # setup_precios_comparados()
     setup_lista_de_precios()
+    setup_compra_mensual()
