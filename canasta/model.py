@@ -75,7 +75,11 @@ class Articulo(Entity):
 
     def __unicode__(self):
         envase = self.envase if self.envase else ""
-        return "%s %s %s %s %s" % (self.descripcion, self.marca, self.cantidad, self.unidad_medida, envase)
+        if self.marca.denominacion != "sin_marca":
+            return "%s %s %s %s %s" % (self.descripcion, self.marca, self.cantidad, self.unidad_medida, envase)
+        else:
+            return "%s %s %s %s" % (self.descripcion, self.cantidad, self.unidad_medida, envase)
+
 
     class Admin(EntityAdmin):
         search_all_fields = False
