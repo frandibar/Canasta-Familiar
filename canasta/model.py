@@ -157,18 +157,23 @@ class ArticuloCompra(Entity):
     precio = Field(Float)
     cantidad = Field(Float, default=1.0)
 
+    # este lo uso para poder ordenar, porque el ordenamiento por articulo no funciona como espero
+    @property
+    def articulo_desc(self):
+        return self.articulo.descripcion
+
     def __unicode__(self):
         return self.articulo.descripcion
 
     class Admin(EntityAdmin):
         verbose_name = u"Artículo"
-        list_display = ["articulo", "precio", "cantidad"]
+        list_display = ["articulo", "precio", "cantidad", "articulo_desc"]
         field_attributes = dict(precio = dict(prefix = '$'))
-        form_size = (600,150)
+        form_size = (750,250)
 
-        # esto es para que se refresque el campo total de compra
-        def get_depending_objects(self, obj):
-            yield obj.compra
+        # # esto es para que se refresque el campo total de compra
+        # def get_depending_objects(self, obj):
+        #     yield obj.compra
 
 class ImputarCompra(Action):
     verbose_name = "Imputar"
@@ -252,7 +257,7 @@ class Compra(Entity):
                                              prefix = '$',
                                              editable = False),
                                 )# articulos = dict(create_inline = True))
-        form_size = (950,600)
+        form_size = (1050,700)
         delete_mode = "on_confirm"
 
         def get_query(self):
