@@ -53,6 +53,7 @@ class ListaDePrecios(object):
                        ]
         field_attributes = dict(precio = dict(delegate = CurrencyDelegate,
                                               prefix = "$"),
+                                articulo = dict(name = u"Artículo"),
                                 )
 
 class CompraMensual(object):
@@ -67,6 +68,8 @@ class CompraMensual(object):
         list_action = None
         list_filter = [ComboBoxFilter("periodo"),
                        ]
+        field_attributes = dict(periodo = dict(name = u"Período"),
+                                articulo = dict(name = u"Artículo"))
 
 def compra_mensual():
     tbl_compra = Compra.mapper.mapped_table

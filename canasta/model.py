@@ -32,15 +32,30 @@ from camelot.view.controls.delegates import CurrencyDelegate
 from camelot.admin.entity_admin import EntityAdmin
 from camelot.view.filters import ComboBoxFilter
 from elixir import Entity, Field, ManyToOne, OneToMany, using_options
+from elixir.properties import ColumnProperty
 from sqlalchemy import Unicode, Date, Float, Integer, Boolean
+from sqlalchemy import sql, and_
 from sqlalchemy import desc
 from sqlalchemy.exc import IntegrityError, FlushError
 from PyQt4.QtGui import QMessageBox
 import camelot
 import datetime
 
+class Cadena(Entity):
+    using_options(tablename="cadena")
+    denominacion = Field(Unicode(50), required=True)
+
+    def __unicode__(self):
+        return "%s" % (self.denominacion)
+
+    class Admin(EntityAdmin):
+        list_display = ["denominacion"]
+        delete_mode = "on_confirm"
+        field_attributes = dict(denominacion = dict(name = u"Denominación"))
+
 class Establecimiento(Entity):
     using_options(tablename="establecimiento", order_by=["denominacion"])
+    cadena = ManyToOne("Cadena")# TODO, required=True)
     denominacion = Field(Unicode(50), required=True)
     domicilio = Field(Unicode(100), required=True)
 
@@ -48,8 +63,9 @@ class Establecimiento(Entity):
         return "%s - %s" % (self.denominacion, self.domicilio)
 
     class Admin(EntityAdmin):
-        list_display = ["denominacion", "domicilio"]
+        list_display = ["cadena", "denominacion", "domicilio"]
         delete_mode = "on_confirm"
+        field_attributes = dict(denominacion = dict(name = u"Denominación"))
 
 class Categoria(Entity):
     using_options(tablename="categoria", order_by=["descripcion"])
@@ -59,8 +75,11 @@ class Categoria(Entity):
         return self.descripcion
 
     class Admin(EntityAdmin):
+        verbose_name = u"Categoría"
+        verbose_name_plural = u"Categorías"
         list_display = ["descripcion"]
         delete_mode = "on_confirm"
+        field_attributes = dict(descripcion = dict(name = u"Descripción"))
 
 class Articulo(Entity):
     using_options(tablename="articulo", order_by=["descripcion"])
@@ -82,6 +101,8 @@ class Articulo(Entity):
 
 
     class Admin(EntityAdmin):
+        verbose_name = u"Artículo"
+        verbose_name_plural = u"Artículos"
         search_all_fields = False
         list_search = ["descripcion",
                        "codigo_barras",
@@ -107,6 +128,11 @@ class Articulo(Entity):
                         "foto",
                         ]
         delete_mode = "on_confirm"
+        field_attributes = dict(articulo = dict(name = u"Artículo"),
+                                categoria = dict(name = u"Categoría"),
+                                codigo_barras = dict(name = u"Código de barras"),
+                                unidad_medida = dict(name = "Unidad de medida"),
+                                descripcion = dict(name = u"Descripción"))
 
 class Marca(Entity):
     using_options(tablename="marca", order_by=["denominacion"])
@@ -118,6 +144,7 @@ class Marca(Entity):
     class Admin(EntityAdmin):
         list_display = ["denominacion"]
         delete_mode = "on_confirm"
+        field_attributes = dict(denominacion = dict(name = u"Denominación"))
 
 class Precio(Entity):
     using_options(tablename="precio")
@@ -147,7 +174,8 @@ class Precio(Entity):
         list_filter = [ComboBoxFilter("establecimiento.denominacion"),
                        ComboBoxFilter("fecha"),
                        ]
-        field_attributes = dict(precio = dict(prefix = "$"))
+        field_attributes = dict(precio = dict(prefix = "$"),
+                                articulo = dict(name = u"Artículo"))
         delete_mode = "on_confirm"
 
 class ArticuloCompra(Entity):
@@ -160,15 +188,42 @@ class ArticuloCompra(Entity):
     # este lo uso para poder ordenar, porque el ordenamiento por articulo no funciona como espero
     @property
     def articulo_desc(self):
-        return self.articulo.descripcion
+        if self.articulo:
+            return self.articulo.descripcion
+        return ""
+
+    # @property
+    # def etiqueta(self):
+    #     return self.articulo.id
+
+    # @ColumnProperty
+    # def etiqueta(self):
+    #     tbl_art_ticket = ArticuloTicket.mapper.mapped_table
+    #     tbl_ticket = Ticket.mapper.mapped_table
+    #     tbl_cadena = Cadena.mapper.mapped_table
+    #     tbl_establec = Establecimiento.mapper.mapped_table
+    #     return sql.select([tbl_art_ticket.c.etiqueta],
+    #                       from_obj = [tbl_art_ticket, tbl_ticket, tbl_cadena, tbl_establec],
+    #                       whereclause = and_(tbl_art_ticket.c.articulo_id == self.articulo.id,
+    #                                          tbl_art_ticket.c.ticket_cadena_id == tbl_ticket.c.cadena_id,
+    #                                          tbl_ticket.c.cadena_id == tbl_cadena.c.id,
+    #                                          tbl_cadena.c.id == tbl_establec.c.cadena_id))
+
+        # return sql.select([tbl_art_ticket.c.etiqueta],
+        #                   from_obj = tbl_art_ticket.join(tbl_ticket).join(tbl_cadena).join(tbl_establec),
+        #                   whereclause = tbl_art_ticket.c.articulo_id == self.articulo.id)
 
     def __unicode__(self):
         return self.articulo.descripcion
 
     class Admin(EntityAdmin):
         verbose_name = u"Artículo"
+        form_display = ["articulo", "precio", "cantidad"]
+        # list_display = ["articulo", "precio", "cantidad", "etiqueta", "articulo_desc"]
         list_display = ["articulo", "precio", "cantidad", "articulo_desc"]
-        field_attributes = dict(precio = dict(prefix = '$'))
+        field_attributes = dict(precio = dict(prefix = '$'),
+                                articulo = dict(name = u"Artículo"),
+                                articulo_desc = dict(name = u"Art."))
         form_size = (750,250)
 
         # # esto es para que se refresque el campo total de compra
@@ -256,10 +311,50 @@ class Compra(Entity):
                                 total = dict(delegate = CurrencyDelegate,
                                              prefix = '$',
                                              editable = False),
-                                )# articulos = dict(create_inline = True))
+                                articulos = dict(name = u"Artículos",
+                                                 create_inline = True))
         form_size = (1050,700)
         delete_mode = "on_confirm"
 
         def get_query(self):
             """Redefino para devolver ordenado por fecha desc"""
             return EntityAdmin.get_query(self).order_by(desc('fecha'))
+
+class Ticket(Entity):
+    using_options(tablename="ticket")
+    cadena = ManyToOne("Cadena", primary_key=True)
+    articulos = OneToMany("ArticuloTicket")
+
+    def __unicode__(self):
+        return "%s" % (self.cadena.denominacion)
+
+    class Admin(EntityAdmin):
+        form_display = ["cadena", "articulos"]
+        list_display = ["cadena"]
+        delete_mode = "on_confirm"
+        form_size = (750,600)
+        field_attributes = dict(articulos = dict(name = u"Artículos"))
+
+class ArticuloTicket(Entity):
+    using_options(tablename="articulo_ticket")
+    ticket = ManyToOne("Ticket", primary_key=True, ondelete="cascade", onupdate="cascade")
+    articulo = ManyToOne("Articulo", primary_key=True, ondelete="cascade", onupdate="cascade")
+    etiqueta = Field(Unicode(50), required=True)
+
+    def __unicode__(self):
+        return "%s" % (self.etiqueta)
+
+    # este lo uso para poder ordenar, porque el ordenamiento por articulo no funciona como espero
+    @property
+    def articulo_desc(self):
+        if self.articulo:
+            return self.articulo.descripcion
+        return ""
+
+    class Admin(EntityAdmin):
+        form_display = ["articulo", "etiqueta"]
+        list_display = ["articulo", "etiqueta", "articulo_desc"]
+        delete_mode = "on_confirm"
+        form_size = (750,250)
+        field_attributes = dict(articulo = dict(name = u"Artículo"),
+                                articulo_desc = dict(name = "Art."))
